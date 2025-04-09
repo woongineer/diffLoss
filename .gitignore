@@ -9,6 +9,7 @@ __pycache__/
 *.csv
 *.pkl
 *.json
+.idea
 .DS_Store
 ._.DS_Store
 **/.DS_Store
