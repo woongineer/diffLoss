@@ -1,5 +1,5 @@
-from datetime import datetime
 from copy import deepcopy
+from datetime import datetime
 
 import torch
 
@@ -84,7 +84,7 @@ if __name__ == "__main__":
             inserted_fidelity = check_fidelity(circuit_inserted, X1_batch, X2_batch, Y_batch)
             inserted_loss = check_triplet_fidelity_loss(circuit_inserted, Xa_batch, Xp_batch, Xn_batch)
 
-            reward = -inserted_loss.item()
+            reward = -inserted_loss.item() * 10
             circuit = circuit_inserted
 
             log_probs.append(remove_log_prob + insert_log_prob)
@@ -122,6 +122,6 @@ if __name__ == "__main__":
         opt_insert.step()
 
         fidelity_logs.append(inserted_fidelity)
-        print(f"[episode {episode}] Fidelity: {inserted_fidelity:.4f}, Reward: {reward:.4f}, Steps: {step + 1}")
+        print(f"[episode {episode}] Fidelity: {inserted_fidelity:.4f}, Reward: {reward:.4f}")
 
     fidelity_plot(fidelity_logs, "fidelity_QPMeL.png")
