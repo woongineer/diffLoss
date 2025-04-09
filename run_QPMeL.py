@@ -3,14 +3,14 @@ from copy import deepcopy
 
 import torch
 
-from REINFORCE.analysis import fidelity_plot, plot_circuit
-from REINFORCE.data import data_load_and_process, new_data
-from REINFORCE.fidelity import check_fidelity
-from REINFORCE.initializer import initialize_circuit
-from REINFORCE.modifier import remover, inserter
-from REINFORCE.policy import PolicyInsertWithMask, PolicyRemove, insert_gate_map
-from REINFORCE.utils import fill_identity_gates, representer, FixedLinearProjection, sample_remove_position, \
-    sample_insert_gate_param, ordering, check_circuit_structure
+from analysis import fidelity_plot, plot_circuit
+from data import data_load_and_process, new_triplet_data, new_data
+from fidelity import check_triplet_fidelity_loss, check_fidelity
+from initializer import initialize_circuit
+from modifier import remover, inserter
+from policy import PolicyInsertWithMask, PolicyRemove, insert_gate_map
+from utils import fill_identity_gates, representer, FixedLinearProjection, sample_remove_position, \
+    sample_insert_gate_param, ordering
 
 if __name__ == "__main__":
     print(datetime.now())
@@ -22,9 +22,9 @@ if __name__ == "__main__":
     representation_dim = 64
     policy_dim = 128
     batch_size = 128
-    gamma = 0.98
-    learning_rate = 0.0001
-    max_episode = 1200
+    gamma = 0.95
+    learning_rate = 0.0003
+    max_episode = 800
     max_step = 25
     fidelity_drop_threshold = 0.5
 
@@ -49,6 +49,7 @@ if __name__ == "__main__":
     for episode in range(max_episode):
         done = False
         circuit = deepcopy(circuit_original)
+        Xa_batch, Xp_batch, Xn_batch = new_triplet_data(batch_size, X_train, Y_train)
         X1_batch, X2_batch, Y_batch = new_data(batch_size, X_train, Y_train)
 
         low_fidelity_steps = 0
@@ -59,7 +60,7 @@ if __name__ == "__main__":
         rewards = []
 
         for step in range(max_step):
-            print(f"step {step}")
+            # print(f"step {step}")
             # plot_circuit(circuit, num_of_qubit)
             # print("#########")
             circuit_representation = representer(circuit, num_of_qubit, depth, gate_types)
@@ -81,8 +82,9 @@ if __name__ == "__main__":
             circuit_inserted = ordering(circuit_inserted)
             circuit_inserted = fill_identity_gates(circuit_inserted, num_of_qubit, depth)
             inserted_fidelity = check_fidelity(circuit_inserted, X1_batch, X2_batch, Y_batch)
+            inserted_loss = check_triplet_fidelity_loss(circuit_inserted, Xa_batch, Xp_batch, Xn_batch)
 
-            reward = 1 -inserted_fidelity
+            reward = -inserted_loss.item()
             circuit = circuit_inserted
 
             log_probs.append(remove_log_prob + insert_log_prob)
@@ -122,4 +124,4 @@ if __name__ == "__main__":
         fidelity_logs.append(inserted_fidelity)
         print(f"[episode {episode}] Fidelity: {inserted_fidelity:.4f}, Reward: {reward:.4f}, Steps: {step + 1}")
 
-    fidelity_plot(fidelity_logs, "fidelity_REINFORCE.png")
+    fidelity_plot(fidelity_logs, "fidelity_QPMeL.png")

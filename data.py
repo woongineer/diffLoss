@@ -71,3 +71,40 @@ def new_data(batch_sz, X, Y):
     Y_new_array = pnp.array(Y_new)
     Y_new_tensor = torch.from_numpy(Y_new_array).float()
     return X1_new_tensor, X2_new_tensor, Y_new_tensor
+
+
+def new_triplet_data(batch_sz, X, Y):
+    triplets = []
+    for _ in range(batch_sz):
+        anchor_idx = np.random.randint(len(X))
+        anchor_x, anchor_y = X[anchor_idx], Y[anchor_idx]
+
+        # positive: 같은 클래스
+        pos_candidates = [i for i, y in enumerate(Y) if y == anchor_y and i != anchor_idx]
+        positive_idx = np.random.choice(pos_candidates)
+
+        # negative: 다른 클래스
+        neg_candidates = [i for i, y in enumerate(Y) if y != anchor_y]
+        negative_idx = np.random.choice(neg_candidates)
+
+        triplets.append((X[anchor_idx], X[positive_idx], X[negative_idx]))
+
+    Xa, Xp, Xn = zip(*triplets)
+    Xa_tensor = torch.from_numpy(np.array(Xa)).float()
+    Xp_tensor = torch.from_numpy(np.array(Xp)).float()
+    Xn_tensor = torch.from_numpy(np.array(Xn)).float()
+    return Xa_tensor, Xp_tensor, Xn_tensor
+
+
+def get_class_balanced_batch(X, Y, dc=16):
+    """클래스별로 dc개씩 균등하게 뽑은 batch 반환"""
+    Xa, Ya = [], []
+    for cls in [0, 1]:
+        indices = [i for i, y in enumerate(Y) if y == cls]
+        selected = np.random.choice(indices, size=dc, replace=False)
+        for i in selected:
+            Xa.append(X[i])
+            Ya.append(Y[i])
+    Xa = np.array(Xa)
+    Ya = np.array(Ya)
+    return torch.from_numpy(Xa).float(), torch.from_numpy(Ya).int()
