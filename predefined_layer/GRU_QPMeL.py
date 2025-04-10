@@ -2,11 +2,11 @@ from datetime import datetime
 
 import torch
 
-from data import data_load_and_process, new_data
-from loss import get_fidelity_loss
-from model import CNNLSTMPolicy, CNNLSTMValue
+from data import data_load_and_process, new_data, new_triplet_data
+from loss import get_fidelity_loss, get_QPMeL_loss
+from model import GRUPolicy, GRUValue
 from plot import save_probability_animation, save_trajectory, plot_fidelity_loss
-from utils import generate_layers, make_arch
+from utils import generate_layers
 
 if __name__ == "__main__":
     print(datetime.now())
@@ -28,9 +28,9 @@ if __name__ == "__main__":
     layer_set = generate_layers(num_qubit, num_layer)
     X_train, X_test, Y_train, Y_test = data_load_and_process(dataset='kmnist', reduction_sz=num_qubit)
 
-    policy_net = CNNLSTMPolicy(feature_dim=16, hidden_dim=32, output_dim=num_layer, num_layers=1)
+    policy_net = GRUPolicy(num_layers=num_layer)
     policy_net.train()
-    value_net = CNNLSTMValue(feature_dim=16, hidden_dim=32)
+    value_net = GRUValue(num_layers=num_layer)
     value_net.train()
 
     opt = torch.optim.Adam(policy_net.parameters(), lr=lr)
@@ -38,35 +38,33 @@ if __name__ == "__main__":
 
     gate_list = None
     loss = 0
-    arch_list = {}
+    last_fidelity_loss_list = {}
     prob_list = {}
     layer_list_list = {}
     for episode in range(max_episode):
         X1_batch, X2_batch, Y_batch = new_data(batch_size, X_train, Y_train)
+        Xa_batch, Xp_batch, Xn_batch = new_triplet_data(batch_size, X_train, Y_train)
 
         layer_list = []
         reward_list = []
         log_prob_list = []
         value_list = []
 
-        current_arch = torch.randint(0, 1, (1, 1, num_qubit, num_gate_class)).float()
-
         for step in range(max_step):
-            output = policy_net.forward(current_arch)
+            output = policy_net.forward(layer_list)
             prob = torch.softmax(output.squeeze() / temperature, dim=-1)
 
             dist = torch.distributions.Categorical(prob)
             layer_index = dist.sample()
-            layer_list.append(layer_index)
+            layer_list.append(layer_index.item())
 
-            value = value_net(current_arch)  # shape: [1, 1]
+            value = value_net(layer_list)  # shape: [1, 1]
             value_list.append(value.squeeze())
 
             gate_list = [item for i in layer_list for item in layer_set[int(i)]]
-            current_arch = make_arch(gate_list, num_qubit)
-
             fidelity_loss = get_fidelity_loss(gate_list, X1_batch, X2_batch, Y_batch)
-            reward = - fidelity_loss
+            QPMeL_loss = get_QPMeL_loss(gate_list, Xa_batch, Xp_batch, Xn_batch)
+            reward = - QPMeL_loss
 
             log_prob = dist.log_prob(layer_index.clone().detach())
             log_prob_list.append(log_prob)
@@ -94,7 +92,7 @@ if __name__ == "__main__":
         print(f"Epdisode: {episode}, FidelityLoss: {fidelity_loss.item():.4f}, PolicyLoss: {policy_loss:.3f}, "
               f"ValueLoss: {value_loss:.3f}, Reward: {reward:.3f}")
 
-        arch_list[episode + 1] = {"fidelity_loss": fidelity_loss.item(), "gate_list": gate_list}
+        last_fidelity_loss_list[episode + 1] = {"fidelity_loss": fidelity_loss.item()}
 
         opt.zero_grad()
         opt_val.zero_grad()
@@ -114,8 +112,8 @@ if __name__ == "__main__":
         opt.step()
         opt_val.step()
 
-    plot_fidelity_loss(arch_list, 'CNNLSTM_fidelity_loss.png')
-    save_probability_animation(prob_list, "CNNLSTM_fidelity_loss_animation.mp4")
-    save_trajectory(layer_list_list, filename="CNNLSTM_fidelity_loss_trajectory.png", max_epoch_PG=max_episode,
+    plot_fidelity_loss(last_fidelity_loss_list, 'GRU_QPMeL_loss.png')
+    save_probability_animation(prob_list, "GRU_QPMeL_loss_animation.mp4")
+    save_trajectory(layer_list_list, filename="GRU_QPMeL_loss_trajectory.png", max_epoch_PG=max_episode,
                     num_layer=num_layer)
     print(datetime.now())

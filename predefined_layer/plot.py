@@ -3,13 +3,13 @@ from matplotlib.animation import FuncAnimation
 import torch
 
 
-def plot_policy_loss(arch_list, filename):
-    x = list(arch_list.keys())
-    policy_losses = [arch_list[i]['policy_loss'] for i in x]
+def plot_fidelity_loss(last_fidelity_loss_list, filename):
+    x = list(last_fidelity_loss_list.keys())
+    fidelity_loss = [last_fidelity_loss_list[i]['fidelity_loss'] for i in x]
 
     plt.figure(figsize=(10, 6))
 
-    plt.plot(x, policy_losses, marker='o', linestyle='-', label='Loss')
+    plt.plot(x, fidelity_loss, marker='o', linestyle='-', label='Loss')
 
     plt.xlabel('episode')
     plt.ylabel('Loss')
@@ -17,7 +17,7 @@ def plot_policy_loss(arch_list, filename):
     plt.axhline(0, color='black', linestyle='--', linewidth=0.8)  # 기준선
     plt.legend()
     plt.grid()
-    plt.savefig(filename)
+    plt.savefig(f"results/{filename}")
 
 
 def save_probability_animation(prob_list, filename="animation.mp4"):
@@ -52,7 +52,7 @@ def save_probability_animation(prob_list, filename="animation.mp4"):
     ani = FuncAnimation(fig, update, frames=len(frames), interval=600, repeat=True)
 
     # Save animation as a video file
-    ani.save(filename, writer="ffmpeg")
+    ani.save(f"results/{filename}", writer="ffmpeg")
     plt.close(fig)
 
 
@@ -90,7 +90,7 @@ def save_trajectory(li, filename="trajectory_plot.png", max_epoch_PG=200, num_la
     plt.ylabel("Position (Layer Index)", fontsize=14)
     plt.legend(title="Trajectories", fontsize=12, title_fontsize=14)
     # 그래프 저장
-    plt.savefig(filename, bbox_inches='tight')
+    plt.savefig(f"results/{filename}", bbox_inches='tight')
     plt.close()
 
 

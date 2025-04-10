@@ -1,11 +1,12 @@
-import torch
 from datetime import datetime
 
+import torch
+
 from data import data_load_and_process, new_data
-from model import GRUPolicy, GRUValue
-from utils import generate_layers, make_arch
 from loss import get_fidelity_loss
-from plot import save_probability_animation, save_trajectory, plot_policy_loss
+from model import GRUPolicy, GRUValue
+from plot import save_probability_animation, save_trajectory, plot_fidelity_loss
+from utils import generate_layers
 
 if __name__ == "__main__":
     print(datetime.now())
@@ -37,7 +38,7 @@ if __name__ == "__main__":
 
     gate_list = None
     loss = 0
-    arch_list = {}
+    last_fidelity_loss_list = {}
     prob_list = {}
     layer_list_list = {}
     for episode in range(max_episode):
@@ -61,7 +62,7 @@ if __name__ == "__main__":
 
             gate_list = [item for i in layer_list for item in layer_set[int(i)]]
             fidelity_loss = get_fidelity_loss(gate_list, X1_batch, X2_batch, Y_batch)
-            reward = 1 - fidelity_loss
+            reward = - fidelity_loss
 
             log_prob = dist.log_prob(layer_index.clone().detach())
             log_prob_list.append(log_prob)
@@ -86,10 +87,10 @@ if __name__ == "__main__":
         value_loss = advantages.pow(2).mean()
         total_loss = policy_loss + value_loss
 
-        print(f"Epdisode: {episode}, LastStepFidelityLoss: {fidelity_loss.item():.4f}, "
-              f"PolicyLoss: {policy_loss:.3f}, ValueLoss: {value_loss:.3f}")
+        print(f"Epdisode: {episode}, FidelityLoss: {fidelity_loss.item():.4f}, PolicyLoss: {policy_loss:.3f}, "
+              f"ValueLoss: {value_loss:.3f}, Reward: {reward:.3f}")
 
-        arch_list[episode + 1] = {"policy_loss": policy_loss.item(), "gate_list": gate_list}
+        last_fidelity_loss_list[episode + 1] = {"fidelity_loss": fidelity_loss.item()}
 
         opt.zero_grad()
         opt_val.zero_grad()
@@ -109,8 +110,8 @@ if __name__ == "__main__":
         opt.step()
         opt_val.step()
 
-    plot_policy_loss(arch_list, 'GRU_fidelity_loss.png')
+    plot_fidelity_loss(last_fidelity_loss_list, 'GRU_fidelity_loss.png')
     save_probability_animation(prob_list, "GRU_fidelity_loss_animation.mp4")
-    save_trajectory(layer_list_list, filename="GRU_fidelity_loss_trajectory.png", max_epoch_PG=max_episode, num_layer=num_layer)
+    save_trajectory(layer_list_list, filename="GRU_fidelity_loss_trajectory.png", max_epoch_PG=max_episode,
+                    num_layer=num_layer)
     print(datetime.now())
-

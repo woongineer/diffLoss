@@ -2,8 +2,8 @@ from datetime import datetime
 
 import torch
 
-from data import data_load_and_process, new_data
-from loss import get_fidelity_loss
+from data import data_load_and_process, new_data, new_triplet_data
+from loss import get_fidelity_loss, get_QPMeL_loss
 from model import CNNLSTMPolicy, CNNLSTMValue
 from plot import save_probability_animation, save_trajectory, plot_fidelity_loss
 from utils import generate_layers, make_arch
@@ -43,6 +43,7 @@ if __name__ == "__main__":
     layer_list_list = {}
     for episode in range(max_episode):
         X1_batch, X2_batch, Y_batch = new_data(batch_size, X_train, Y_train)
+        Xa_batch, Xp_batch, Xn_batch = new_triplet_data(batch_size, X_train, Y_train)
 
         layer_list = []
         reward_list = []
@@ -66,7 +67,8 @@ if __name__ == "__main__":
             current_arch = make_arch(gate_list, num_qubit)
 
             fidelity_loss = get_fidelity_loss(gate_list, X1_batch, X2_batch, Y_batch)
-            reward = - fidelity_loss
+            QPMeL_loss = get_QPMeL_loss(gate_list, Xa_batch, Xp_batch, Xn_batch)
+            reward = - QPMeL_loss
 
             log_prob = dist.log_prob(layer_index.clone().detach())
             log_prob_list.append(log_prob)
@@ -114,8 +116,8 @@ if __name__ == "__main__":
         opt.step()
         opt_val.step()
 
-    plot_fidelity_loss(arch_list, 'CNNLSTM_fidelity_loss.png')
-    save_probability_animation(prob_list, "CNNLSTM_fidelity_loss_animation.mp4")
-    save_trajectory(layer_list_list, filename="CNNLSTM_fidelity_loss_trajectory.png", max_epoch_PG=max_episode,
+    plot_fidelity_loss(arch_list, 'CNNLSTM_QPMeL_loss.png')
+    save_probability_animation(prob_list, "CNNLSTM_QPMeL_loss_animation.mp4")
+    save_trajectory(layer_list_list, filename="CNNLSTM_QPMeL_loss_trajectory.png", max_epoch_PG=max_episode,
                     num_layer=num_layer)
     print(datetime.now())
