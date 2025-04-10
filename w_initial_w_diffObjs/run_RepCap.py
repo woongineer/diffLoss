@@ -100,20 +100,17 @@ if __name__ == "__main__":
                 print("done activated")
                 break
 
-        returns = []
-        G = 0
-        for r in reversed(rewards):
-            G = r + gamma * G
-            returns.insert(0, G)
-        returns = torch.tensor(returns)
-        returns = (returns - returns.mean()) / (returns.std() + 1e-6)
+        returns = torch.tensor(rewards)
+        baseline = returns.mean()
+        advantages = returns - baseline
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-6)
 
         if done:
-            returns *= 1.1
+            advantages *= 1.1
 
         loss = 0
-        for log_prob, G in zip(log_probs, returns):
-            loss -= log_prob * G
+        for log_prob, A in zip(log_probs, advantages):
+            loss -= log_prob * A
 
         opt_remove.zero_grad()
         opt_insert.zero_grad()
