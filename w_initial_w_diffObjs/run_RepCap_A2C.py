@@ -24,7 +24,7 @@ if __name__ == "__main__":
     batch_size = 64
     gamma = 0.95
     learning_rate = 0.0003
-    max_episode = 800
+    max_episode = 300
     max_step = 25
     fidelity_drop_threshold = 0.5
 
@@ -49,11 +49,13 @@ if __name__ == "__main__":
 
     fidelity_logs = []
 
+    X1_batch, X2_batch, Y_batch = new_data(batch_size, X_train, Y_train)
+    X_repcap, Y_repcap = get_class_balanced_batch(X_train, Y_train, dc=16)
     for episode in range(max_episode):
         done = False
         circuit = deepcopy(circuit_original)
-        X1_batch, X2_batch, Y_batch = new_data(batch_size, X_train, Y_train)
-        X_repcap, Y_repcap = get_class_balanced_batch(X_train, Y_train, dc=16)
+        # X1_batch, X2_batch, Y_batch = new_data(batch_size, X_train, Y_train)
+        # X_repcap, Y_repcap = get_class_balanced_batch(X_train, Y_train, dc=16)
 
         low_fidelity_steps = 0
         initial_fidelity = check_fidelity(circuit, X1_batch, X2_batch, Y_batch)

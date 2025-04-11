@@ -2,11 +2,11 @@ from datetime import datetime
 
 import torch
 
-from data import data_load_and_process, new_data, get_class_balanced_batch
-from loss import get_fidelity_loss, get_RepCap_loss
+from data import data_load_and_process, new_data, new_triplet_data
+from loss import get_fidelity_loss, get_QPMeL_loss
 from model import CNNLSTMPolicy, CNNLSTMValue
 from plot import save_probability_animation, save_trajectory, plot_fidelity_loss
-from utils import generate_layers, make_arch
+from utils import generate_layers, make_arch, random_loss
 
 if __name__ == "__main__":
     print(datetime.now())
@@ -16,12 +16,12 @@ if __name__ == "__main__":
 
     num_layer = 64
     batch_size = 25
-    max_episode = 500  # 50
+    max_episode = 20000  # 50
 
-    lr = 0.0003
-    lr_val = 0.0003
+    lr = 0.005
+    lr_val = 0.005
 
-    temperature = 0.5
+    temperature = 1
     discount = 0.95
 
     # 미리 만들 것
@@ -41,11 +41,12 @@ if __name__ == "__main__":
     arch_list = {}
     prob_list = {}
     layer_list_list = {}
-    X1_batch, X2_batch, Y_batch = new_data(batch_size, X_train, Y_train)
-    X_repcap, Y_repcap = get_class_balanced_batch(X_train, Y_train, dc=16)
+    # X1_batch, X2_batch, Y_batch = new_data(batch_size, X_train, Y_train)
+    # Xa_batch, Xp_batch, Xn_batch = new_triplet_data(batch_size, X_train, Y_train)
     for episode in range(max_episode):
-        # X1_batch, X2_batch, Y_batch = new_data(batch_size, X_train, Y_train)
-        # X_repcap, Y_repcap = get_class_balanced_batch(X_train, Y_train, dc=16)
+        X1_batch, X2_batch, Y_batch = new_data(batch_size, X_train, Y_train)
+        Xa_batch, Xp_batch, Xn_batch = new_triplet_data(batch_size, X_train, Y_train)
+        random_QPMeL_loss = random_loss(layer_set, max_step, Xa_batch, Xp_batch, Xn_batch, 'QPMeL')
 
         layer_list = []
         reward_list = []
@@ -69,8 +70,8 @@ if __name__ == "__main__":
             current_arch = make_arch(gate_list, num_qubit)
 
             fidelity_loss = get_fidelity_loss(gate_list, X1_batch, X2_batch, Y_batch)
-            RepCap_loss = get_RepCap_loss(gate_list, X_repcap, Y_repcap)
-            reward = - RepCap_loss
+            QPMeL_loss = get_QPMeL_loss(gate_list, Xa_batch, Xp_batch, Xn_batch)
+            reward = (random_QPMeL_loss - QPMeL_loss) * 20
 
             log_prob = dist.log_prob(layer_index.clone().detach())
             log_prob_list.append(log_prob)
@@ -118,8 +119,8 @@ if __name__ == "__main__":
         opt.step()
         opt_val.step()
 
-    plot_fidelity_loss(arch_list, 'CNNLSTM_RepCapL_loss.png')
-    save_probability_animation(prob_list, "CNNLSTM_RepCap_loss_animation.mp4")
-    save_trajectory(layer_list_list, filename="CNNLSTM_RepCap_loss_trajectory.png", max_epoch_PG=max_episode,
+    plot_fidelity_loss(arch_list, 'relative_CNNLSTM_QPMeL_loss.png')
+    save_probability_animation(prob_list, "relative_CNNLSTM_QPMeL_loss_animation.mp4")
+    save_trajectory(layer_list_list, filename="relative_CNNLSTM_QPMeL_loss_trajectory.png", max_epoch_PG=max_episode,
                     num_layer=num_layer)
     print(datetime.now())

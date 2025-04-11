@@ -11,18 +11,18 @@ from utils import generate_layers
 if __name__ == "__main__":
     print(datetime.now())
     num_qubit = 4
-    max_step = 3
+    max_step = 10
     num_gate_class = 5
 
     num_layer = 64
     batch_size = 25
-    max_episode = 4  # 50
+    max_episode = 500  # 50
 
-    lr = 0.002
-    lr_val = 0.002
+    lr = 0.0003
+    lr_val = 0.0003
 
     temperature = 0.5
-    discount = 0.9
+    discount = 0.95
 
     # 미리 만들 것
     layer_set = generate_layers(num_qubit, num_layer)
@@ -41,9 +41,11 @@ if __name__ == "__main__":
     last_fidelity_loss_list = {}
     prob_list = {}
     layer_list_list = {}
+    X1_batch, X2_batch, Y_batch = new_data(batch_size, X_train, Y_train)
+    X_repcap, Y_repcap = get_class_balanced_batch(X_train, Y_train, dc=16)
     for episode in range(max_episode):
-        X1_batch, X2_batch, Y_batch = new_data(batch_size, X_train, Y_train)
-        X_repcap, Y_repcap = get_class_balanced_batch(X_train, Y_train, dc=16)
+        # X1_batch, X2_batch, Y_batch = new_data(batch_size, X_train, Y_train)
+        # X_repcap, Y_repcap = get_class_balanced_batch(X_train, Y_train, dc=16)
 
         layer_list = []
         reward_list = []

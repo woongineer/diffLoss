@@ -24,7 +24,7 @@ if __name__ == "__main__":
     batch_size = 128
     gamma = 0.95
     learning_rate = 0.0003
-    max_episode = 800
+    max_episode = 300
     max_step = 25
     fidelity_drop_threshold = 0.5
 
@@ -46,11 +46,13 @@ if __name__ == "__main__":
 
     fidelity_logs = []
 
+    Xa_batch, Xp_batch, Xn_batch = new_triplet_data(batch_size, X_train, Y_train)
+    X1_batch, X2_batch, Y_batch = new_data(batch_size, X_train, Y_train)
     for episode in range(max_episode):
         done = False
         circuit = deepcopy(circuit_original)
-        Xa_batch, Xp_batch, Xn_batch = new_triplet_data(batch_size, X_train, Y_train)
-        X1_batch, X2_batch, Y_batch = new_data(batch_size, X_train, Y_train)
+        # Xa_batch, Xp_batch, Xn_batch = new_triplet_data(batch_size, X_train, Y_train)
+        # X1_batch, X2_batch, Y_batch = new_data(batch_size, X_train, Y_train)
 
         low_fidelity_steps = 0
         initial_fidelity = check_fidelity(circuit, X1_batch, X2_batch, Y_batch)

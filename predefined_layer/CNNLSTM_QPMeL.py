@@ -11,18 +11,18 @@ from utils import generate_layers, make_arch
 if __name__ == "__main__":
     print(datetime.now())
     num_qubit = 4
-    max_step = 3
+    max_step = 10
     num_gate_class = 5
 
     num_layer = 64
     batch_size = 25
-    max_episode = 4  # 50
+    max_episode = 20000  # 50
 
-    lr = 0.002
-    lr_val = 0.002
+    lr = 0.005
+    lr_val = 0.005
 
-    temperature = 0.5
-    discount = 0.9
+    temperature = 1
+    discount = 0.95
 
     # 미리 만들 것
     layer_set = generate_layers(num_qubit, num_layer)
@@ -41,6 +41,8 @@ if __name__ == "__main__":
     arch_list = {}
     prob_list = {}
     layer_list_list = {}
+    # X1_batch, X2_batch, Y_batch = new_data(batch_size, X_train, Y_train)
+    # Xa_batch, Xp_batch, Xn_batch = new_triplet_data(batch_size, X_train, Y_train)
     for episode in range(max_episode):
         X1_batch, X2_batch, Y_batch = new_data(batch_size, X_train, Y_train)
         Xa_batch, Xp_batch, Xn_batch = new_triplet_data(batch_size, X_train, Y_train)
@@ -68,7 +70,7 @@ if __name__ == "__main__":
 
             fidelity_loss = get_fidelity_loss(gate_list, X1_batch, X2_batch, Y_batch)
             QPMeL_loss = get_QPMeL_loss(gate_list, Xa_batch, Xp_batch, Xn_batch)
-            reward = - QPMeL_loss
+            reward = - QPMeL_loss * 20
 
             log_prob = dist.log_prob(layer_index.clone().detach())
             log_prob_list.append(log_prob)

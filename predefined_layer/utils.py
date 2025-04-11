@@ -2,6 +2,7 @@ import random
 
 import numpy as np
 import torch
+from loss import get_fidelity_loss, get_QPMeL_loss
 
 
 def generate_layers(num_qubit, num_layers):
@@ -71,3 +72,16 @@ def make_arch_sb3(layer_list_flat, num_qubit, max_layer_step, num_gate_class):
     padded_arch[:arch.shape[0], :arch.shape[1], :arch.shape[2]] = arch
 
     return padded_arch
+
+
+def random_loss(layer_set, max_step, X1_or_Xa, X2_or_Xp, Y_or_Xn, loss_function_name):
+    num_layer = len(layer_set)
+    random_layer_list = random.choices(range(num_layer), k=max_step)
+    random_gate_list = [item for i in random_layer_list for item in layer_set[int(i)]]
+    if loss_function_name == 'fidelity':
+        loss = get_fidelity_loss(random_gate_list, X1_or_Xa, X2_or_Xp, Y_or_Xn)
+    elif loss_function_name == 'QPMeL':
+        loss = get_QPMeL_loss(random_gate_list, X1_or_Xa, X2_or_Xp, Y_or_Xn)
+    else:
+        raise ValueError("Invalid loss function name. Choose either 'fidelity' or 'QPMeL'.")
+    return loss
