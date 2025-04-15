@@ -15,14 +15,14 @@ if __name__ == "__main__":
     num_gate_class = 5
 
     num_layer = 64
-    batch_size = 25
-    max_episode = 20000  # 50
+    batch_size = 32
+    max_episode = 80000  # 50
 
-    lr = 0.005
-    lr_val = 0.005
+    lr = 0.008
+    lr_val = 0.008
 
     temperature = 1
-    discount = 0.95
+    discount = 0.92
 
     # 미리 만들 것
     layer_set = generate_layers(num_qubit, num_layer)
@@ -63,7 +63,7 @@ if __name__ == "__main__":
 
             gate_list = [item for i in layer_list for item in layer_set[int(i)]]
             fidelity_loss = get_fidelity_loss(gate_list, X1_batch, X2_batch, Y_batch)
-            reward = - fidelity_loss * 20
+            reward = - fidelity_loss * 30
 
             log_prob = dist.log_prob(layer_index.clone().detach())
             log_prob_list.append(log_prob)

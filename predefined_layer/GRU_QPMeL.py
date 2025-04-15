@@ -16,10 +16,10 @@ if __name__ == "__main__":
 
     num_layer = 64
     batch_size = 25
-    max_episode = 20000  # 50
+    max_episode = 5000  # 50
 
-    lr = 0.005
-    lr_val = 0.005
+    lr = 0.003
+    lr_val = 0.003
 
     temperature = 1
     discount = 0.95
@@ -27,6 +27,8 @@ if __name__ == "__main__":
     # 미리 만들 것
     layer_set = generate_layers(num_qubit, num_layer)
     X_train, X_test, Y_train, Y_test = data_load_and_process(dataset='kmnist', reduction_sz=num_qubit)
+    X_train = X_train[:50]
+    Y_train = Y_train[:50]
 
     policy_net = GRUPolicy(num_layers=num_layer)
     policy_net.train()
@@ -66,7 +68,7 @@ if __name__ == "__main__":
             gate_list = [item for i in layer_list for item in layer_set[int(i)]]
             fidelity_loss = get_fidelity_loss(gate_list, X1_batch, X2_batch, Y_batch)
             QPMeL_loss = get_QPMeL_loss(gate_list, Xa_batch, Xp_batch, Xn_batch)
-            reward = - QPMeL_loss * 20
+            reward = - QPMeL_loss * 10
 
             log_prob = dist.log_prob(layer_index.clone().detach())
             log_prob_list.append(log_prob)
@@ -114,8 +116,8 @@ if __name__ == "__main__":
         opt.step()
         opt_val.step()
 
-    plot_fidelity_loss(last_fidelity_loss_list, 'GRU_QPMeL_loss.png')
-    save_probability_animation(prob_list, "GRU_QPMeL_loss_animation.mp4")
-    save_trajectory(layer_list_list, filename="GRU_QPMeL_loss_trajectory.png", max_epoch_PG=max_episode,
+    plot_fidelity_loss(last_fidelity_loss_list, '50_GRU_QPMeL_loss.png')
+    save_probability_animation(prob_list, "50_GRU_QPMeL_loss_animation.mp4")
+    save_trajectory(layer_list_list, filename="50_GRU_QPMeL_loss_trajectory.png", max_epoch_PG=max_episode,
                     num_layer=num_layer)
     print(datetime.now())
