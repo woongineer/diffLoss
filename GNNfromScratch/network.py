@@ -15,10 +15,12 @@ class GNN(nn.Module):
         self.p_head = nn.Linear(hidden_dim, num_feature_idx)
         self.t_head = nn.Linear(hidden_dim, num_qubit - 1)
 
+        self.v_head = nn.Linear(hidden_dim, 1)
+
     def forward(self, data):
         x, edge_index = data.x, data.edge_index
         x = F.relu(self.conv1(x, edge_index))
         x = F.relu(self.conv2(x, edge_index))
         x = x.mean(dim=0)  # global pooling
         x = F.relu(self.linear(x))
-        return self.q_head(x), self.g_head(x), self.p_head(x), self.t_head(x)
+        return self.q_head(x), self.g_head(x), self.p_head(x), self.t_head(x), self.v_head(x).squeeze()

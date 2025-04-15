@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import torch
+from torch.functional import F
 from qiskit.converters import circuit_to_dag
 
 from data import data_load_and_process, new_data
@@ -42,6 +43,7 @@ if __name__ == "__main__":
 
         log_probs = []
         rewards = []
+        values = []
 
         for step in range(max_step):
             # print(f"#######################step:{step}#######################")
@@ -51,7 +53,7 @@ if __name__ == "__main__":
             dag = circuit_to_dag(qiskit_qc)
             dag_for_pyg = dag_to_pyg_data(dag, gate_types)
 
-            q_logits, g_logits, p_logits, t_logits = policy_net(dag_for_pyg)
+            q_logits, g_logits, p_logits, t_logits, value = policy_net(dag_for_pyg)
 
             q_dist = torch.softmax(q_logits, dim=0)
             g_dist = torch.softmax(g_logits, dim=0)
@@ -96,15 +98,25 @@ if __name__ == "__main__":
 
             log_probs.append(log_prob)
             rewards.append(reward)
+            values.append(value)
 
-        returns = torch.tensor(rewards)
-        baseline = returns.mean()
-        advantages = returns - baseline
-        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-6)
+        values = torch.stack(values)
+        rewards = torch.tensor(rewards)
+        returns = torch.zeros_like(rewards)
+        next_value = torch.tensor(0.0)
 
-        loss = 0
-        for log_prob, A in zip(log_probs, advantages):
-            loss -= log_prob * A
+        for t in reversed(range(max_step)):
+            next_value = rewards[t] + gamma * next_value
+            returns[t] = next_value
+
+        advantages = returns - values.detach()
+
+        policy_loss = -torch.stack(log_probs) * advantages
+        policy_loss = policy_loss.sum()
+
+        value_loss = F.mse_loss(values, returns)
+
+        loss = policy_loss + value_loss  # 전체 손실
 
         opt.zero_grad()
         loss.backward()
