@@ -9,7 +9,6 @@ from network import GNN
 from plot import fidelity_plot
 from representation import dict_to_qiskit_circuit, dag_to_pyg_data
 
-
 if __name__ == "__main__":
     print(datetime.now())
     num_qubit = 4
@@ -33,7 +32,6 @@ if __name__ == "__main__":
     fidelity_logs = []
 
     for episode in range(max_episode):
-        # done = False
         circuit_dict = [
             {'gate_type': 'H', 'depth': 0, 'qubits': (0, None), 'param': 0},
             {'gate_type': 'H', 'depth': 0, 'qubits': (1, None), 'param': 0},
@@ -52,19 +50,6 @@ if __name__ == "__main__":
             qiskit_qc = dict_to_qiskit_circuit(circuit_dict)
             dag = circuit_to_dag(qiskit_qc)
             dag_for_pyg = dag_to_pyg_data(dag, gate_types)
-
-            # try:
-            #     qiskit_qc = dict_to_qiskit_circuit(circuit_dict)
-            #     dag = circuit_to_dag(qiskit_qc)
-            #     dag_for_pyg = dag_to_pyg_data(dag, gate_types)
-            # except Exception as e:
-            #     print(f"[Ep {episode}, Step {step}] Transpile or DAG error: {e}")
-            #     fidelity_loss = torch.tensor(1.0)
-            #     fidelity_logs.append(fidelity_loss)
-            #     rewards.append(-1.0)
-            #     log_probs.append(torch.tensor(0.0))  # dummy log_prob
-            #     done = True
-            #     break
 
             q_logits, g_logits, p_logits, t_logits = policy_net(dag_for_pyg)
 
@@ -103,27 +88,14 @@ if __name__ == "__main__":
                 'qubits': qubits,
                 'param': param,
             }
-            # if circuit_dict and new_gate == circuit_dict[-1]:
-            #     print(f"[warn] duplicated gate at step {step}: {new_gate}")
 
             circuit_dict.append(new_gate)
 
             fidelity_loss = check_fidelity(circuit_dict, X1_batch, X2_batch, Y_batch)
             reward = -fidelity_loss.item()
-            # try:
-            #     fidelity_loss = check_fidelity(circuit_dict, X1_batch, X2_batch, Y_batch)
-            #     reward = -fidelity_loss.item()
-            # except Exception as e:
-            #     print(f"[Ep {episode}, Step {step}] Fidelity eval error: {e}")
-            #     fidelity_loss = torch.tensor(1.0)
-            #     reward = -1.0
-            #     done = True
 
             log_probs.append(log_prob)
             rewards.append(reward)
-
-            # if done:
-            #     break
 
         returns = torch.tensor(rewards)
         baseline = returns.mean()

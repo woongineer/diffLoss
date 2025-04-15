@@ -1,6 +1,6 @@
 import torch
-from torch_geometric.data import Data
 from qiskit import QuantumCircuit, transpile
+from torch_geometric.data import Data
 
 
 def dict_to_qiskit_circuit(circuit_dict):
@@ -19,10 +19,6 @@ def dict_to_qiskit_circuit(circuit_dict):
             qc.rz(0.5, qubits[0])
         elif name == 'H':
             qc.h(qubits[0])
-    # try:
-    #     qc = transpile(qc, optimization_level=1)
-    # except Exception as e:
-    #     raise RuntimeError(f"[transpile error] {e}")
     return transpile(qc, optimization_level=1)
 
 def dag_to_pyg_data(dag, gate_types):
