@@ -19,10 +19,18 @@ def dict_to_qiskit_circuit(circuit_dict):
             qc.rz(0.5, qubits[0])
         elif name == 'H':
             qc.h(qubits[0])
-    return transpile(qc, optimization_level=1)
+    return transpile(qc, basis_gates=["rx", "ry", "rz", "cx", "h"], optimization_level=1)
 
 def dag_to_pyg_data(dag, gate_types):
     def encode_gate_type(name):
+        mapping = {
+            "rx": "RX",
+            "ry": "RY",
+            "rz": "RZ",
+            "cx": "CNOT",
+            "h": "H",
+        }
+        name = mapping.get(name, name.upper())
         vec = torch.zeros(len(gate_types))
         if name in gate_types:
             vec[gate_types.index(name)] = 1

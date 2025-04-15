@@ -44,8 +44,8 @@ if __name__ == "__main__":
         rewards = []
 
         for step in range(max_step):
-            print(f"#######################step:{step}#######################")
-            print(circuit_dict)
+            # print(f"#######################step:{step}#######################")
+            # print(circuit_dict)
 
             qiskit_qc = dict_to_qiskit_circuit(circuit_dict)
             dag = circuit_to_dag(qiskit_qc)
