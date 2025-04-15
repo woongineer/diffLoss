@@ -10,6 +10,41 @@ from network import GNN
 from plot import fidelity_plot
 from representation import dict_to_qiskit_circuit, dag_to_pyg_data
 
+
+def compute_gae(rewards, values, gamma=0.95, lam=0.95):
+    """GAE(Generalized Advantage Estimation) 계산"""
+    gae = 0
+    returns = []
+
+    # 마지막 상태의 가치 값 (에피소드 종료 시 0으로 가정)
+    next_value = 0
+
+    for i in reversed(range(len(rewards))):
+        # TD 오차 계산
+        delta = rewards[i] + gamma * next_value - values[i].item()
+
+        # GAE 업데이트
+        gae = delta + gamma * lam * gae
+
+        # 다음 단계 준비
+        next_value = values[i].item()
+
+        # 리턴 값 저장 (GAE + 가치)
+        returns.insert(0, gae + values[i].item())
+
+    return torch.tensor(returns)
+
+
+def calculate_entropy(distributions):
+    """정책 분포들의 엔트로피 계산"""
+    total_entropy = 0
+    for dist in distributions:
+        if dist is not None:
+            entropy = -(dist * torch.log(dist + 1e-10)).sum()
+            total_entropy += entropy
+    return total_entropy
+
+
 if __name__ == "__main__":
     print(datetime.now())
     num_qubit = 4
@@ -17,10 +52,11 @@ if __name__ == "__main__":
 
     batch_size = 25
     gamma = 0.95
+    lam = 0.95  # GAE 람다 파라미터
     learning_rate = 0.0003
     max_episode = 300
     max_step = 10
-
+    entropy_coef = 0.01  # 엔트로피 계수
     hidden_dim = 64
 
     X_train, X_test, Y_train, Y_test = data_load_and_process(dataset='kmnist', reduction_sz=num_qubit)
@@ -45,6 +81,9 @@ if __name__ == "__main__":
         rewards = []
         values = []
 
+        # 정책 분포를 저장하기 위한 리스트
+        entropy_dists = []
+
         for step in range(max_step):
             # print(f"#######################step:{step}#######################")
             # print(circuit_dict)
@@ -60,6 +99,9 @@ if __name__ == "__main__":
             p_dist = torch.softmax(p_logits, dim=0)
             t_dist = torch.softmax(t_logits, dim=0)
 
+            # 엔트로피 계산을 위해 분포 저장
+            step_dists = [q_dist, g_dist, None, None]
+
             q_sample = torch.multinomial(q_dist, num_samples=1).item()
             g_sample = torch.multinomial(g_dist, num_samples=1).item()
 
@@ -72,17 +114,21 @@ if __name__ == "__main__":
                 param = None
                 log_prob = torch.log(q_dist[q_sample]) + torch.log(g_dist[g_sample]) + torch.log(
                     t_dist[t_sample_offset])
+                step_dists[2] = t_dist  # target qubit 분포 저장
 
             elif gate_name in ['RX', 'RY', 'RZ']:
                 p_sample = torch.multinomial(p_dist, num_samples=1).item()
                 qubits = (q_sample, None)
                 param = p_sample
                 log_prob = torch.log(q_dist[q_sample]) + torch.log(g_dist[g_sample]) + torch.log(p_dist[p_sample])
+                step_dists[2] = p_dist  # 파라미터 분포 저장
 
             else:
                 qubits = (q_sample, None)
                 param = None
                 log_prob = torch.log(q_dist[q_sample]) + torch.log(g_dist[g_sample])
+
+            entropy_dists.append(step_dists)
 
             new_gate = {
                 'gate_type': gate_name,
@@ -102,27 +148,35 @@ if __name__ == "__main__":
 
         values = torch.stack(values)
         rewards = torch.tensor(rewards)
-        returns = torch.zeros_like(rewards)
-        next_value = torch.tensor(0.0)
 
-        for t in reversed(range(max_step)):
-            next_value = rewards[t] + gamma * next_value
-            returns[t] = next_value
+        # GAE를 사용하여 리턴 계산
+        returns = compute_gae(rewards, values, gamma=gamma, lam=lam)
 
+        # 어드밴티지 계산
         advantages = returns - values.detach()
 
+        # 정책 손실 계산
         policy_loss = -torch.stack(log_probs) * advantages
-        policy_loss = policy_loss.sum()
+        policy_loss = policy_loss.mean()  # sum() 대신 mean()으로 안정화
 
+        # 가치 손실 계산
         value_loss = F.mse_loss(values, returns)
 
-        loss = policy_loss + value_loss  # 전체 손실
+        # 모든 정책 분포에 대한 엔트로피 계산
+        entropy = 0
+        for step_dists in entropy_dists:
+            entropy += calculate_entropy([d for d in step_dists if d is not None])
+        entropy = entropy / len(entropy_dists)  # 평균 엔트로피
+
+        # 전체 손실 계산 (정책 손실 + 가치 손실 - 엔트로피 보너스)
+        loss = policy_loss + 0.5 * value_loss - entropy_coef * entropy
 
         opt.zero_grad()
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(policy_net.parameters(), 0.5)  # 기울기 클리핑 추가
         opt.step()
 
         fidelity_logs.append(fidelity_loss)
-        print(f"[episode {episode}] Fidelity: {fidelity_loss:.4f}")
+        print(f"[episode {episode}] Fidelity: {fidelity_loss:.4f}, Entropy: {entropy:.4f}")
 
     fidelity_plot(fidelity_logs, "fidelity.png")

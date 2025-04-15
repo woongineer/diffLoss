@@ -6,7 +6,7 @@ from torch_geometric.data import Data
 def dict_to_qiskit_circuit(circuit_dict):
     max_qubit = max(max(q for q in g['qubits'] if q is not None) for g in circuit_dict)
     qc = QuantumCircuit(max_qubit + 1)
-    for gate in circuit_dict:
+    for gate in sorted(circuit_dict, key=lambda g: g['depth']):
         name = gate['gate_type']
         qubits = [q for q in gate['qubits'] if q is not None]
         if name == 'CNOT':
@@ -42,6 +42,9 @@ def dag_to_pyg_data(dag, gate_types):
 
     op_nodes = list(dag.topological_op_nodes())
     if not op_nodes:
+        # dummy_x = torch.zeros((1, len(gate_types)))
+        # dummy_x[0, gate_types.index('I')] = 1  # Identity로 설정
+        # return Data(x=dummy_x, edge_index=torch.empty((2, 0), dtype=torch.long))
         raise ValueError("dag_to_pyg_data: DAG has no operation nodes. Check if circuit was optimized to empty.")
 
     for i, node in enumerate(op_nodes):
