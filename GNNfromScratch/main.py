@@ -46,7 +46,7 @@ def calculate_entropy(distributions):
 
 
 if __name__ == "__main__":
-    print(datetime.now())
+    start_time = datetime.now()
     num_qubit = 4
     gate_types = ["RX", "RY", "RZ", "CNOT", "H", "I"]
 
@@ -54,8 +54,8 @@ if __name__ == "__main__":
     gamma = 0.95
     lam = 0.95  # GAE 람다 파라미터
     learning_rate = 0.0003
-    max_episode = 300
-    max_step = 10
+    max_episode = 2000
+    max_step = 15
     entropy_coef = 0.01  # 엔트로피 계수
     hidden_dim = 64
 
@@ -67,7 +67,6 @@ if __name__ == "__main__":
     opt = torch.optim.Adam(policy_net.parameters(), lr=learning_rate)
 
     fidelity_logs = []
-
     for episode in range(max_episode):
         circuit_dict = [
             {'gate_type': 'H', 'depth': 0, 'qubits': (0, None), 'param': 0},
@@ -85,9 +84,6 @@ if __name__ == "__main__":
         entropy_dists = []
 
         for step in range(max_step):
-            # print(f"#######################step:{step}#######################")
-            # print(circuit_dict)
-
             qiskit_qc = dict_to_qiskit_circuit(circuit_dict)
             dag = circuit_to_dag(qiskit_qc)
             dag_for_pyg = dag_to_pyg_data(dag, gate_types)
@@ -180,3 +176,4 @@ if __name__ == "__main__":
         print(f"[episode {episode}] Fidelity: {fidelity_loss:.4f}, Entropy: {entropy:.4f}")
 
     fidelity_plot(fidelity_logs, "fidelity.png")
+    print("Time Taken:", datetime.now() - start_time)
