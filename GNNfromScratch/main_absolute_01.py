@@ -54,7 +54,7 @@ if __name__ == "__main__":
     gamma = 0.95
     lam = 0.95  # GAE 람다 파라미터
     learning_rate = 0.0003
-    max_episode = 2000
+    max_episode = 5
     max_step = 15
     entropy_coef = 0.01  # 엔트로피 계수
     hidden_dim = 64
@@ -175,5 +175,5 @@ if __name__ == "__main__":
         fidelity_logs.append(fidelity_loss)
         print(f"[episode {episode}] Fidelity: {fidelity_loss:.4f}, Entropy: {entropy:.4f}")
 
-    fidelity_plot(fidelity_logs, "fidelity.png")
+    fidelity_plot(fidelity_logs, f"absolute_step:{max_step}_lr:{learning_rate}_episode:{max_episode}.png")
     print("Time Taken:", datetime.now() - start_time)
