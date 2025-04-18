@@ -169,9 +169,7 @@ if __name__ == "__main__":
             zz_logs.append(zz_loss)
 
             if ep % 5 == 0:
-                print(f"[Ep {ep:5d}] Fid {fid_loss:.4f} "
-                      f"| R {reward:.4f} | Ent {entropy_term:.3f} "
-                      f"| η {entropy_coef:.3f}")
+                print(f"[Ep {ep:5d}] Fid {fid_loss:.4f} | ZZ {zz_loss:.4f} | R {reward:.4f} | Ent {entropy_term:.3f}")
 
     except Exception as err:
         print("Error:", err)
