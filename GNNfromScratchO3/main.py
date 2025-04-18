@@ -1,5 +1,6 @@
 from datetime import datetime
 from collections import deque
+import argparse
 
 import torch
 from torch.functional import F
@@ -31,6 +32,12 @@ def calculate_entropy(dists):
 # ──────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     start = datetime.now()
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--gamma", type=float, default=0.95, help="Discount factor")
+    parser.add_argument("--lam", type=float, default=0.95, help="GAE lambda")
+    args = parser.parse_args()
+
     num_qubit = 4
     gate_types = ["RX", "RY", "RZ", "CNOT", "H", "I"]
     in_dim = len(gate_types) + 1            # depth 스칼라 포함
@@ -38,8 +45,8 @@ if __name__ == "__main__":
     ###########수정된 부분 START##########
     # Hyper‑params
     batch_size = 64                         # ↑ 배치로 variance 저감
-    max_episode, max_step = 10000, 15
-    gamma, lam = 0.95, 0.95
+    max_episode, max_step = 20, 15
+    gamma, lam = args.gamma, args.lam
 
     # Reward 스케일 / baseline
     reward_scale = 10.0
@@ -170,6 +177,6 @@ if __name__ == "__main__":
         print("Error:", err)
 
     finally:
-        fidelity_plot(fid_logs, f"fid_loss_bs{batch_size}_.png")
-        fidelity_plot(zz_logs,  f"zz_baseline_bs{batch_size}.png")
+        fidelity_plot(fid_logs, f"fid_loss_bs{batch_size}_gamma{gamma}_lam{lam}.png")
+        fidelity_plot(zz_logs,  f"zz_bs{batch_size}_gamma{gamma}_lam{lam}.png")
         print("Total time:", datetime.now() - start)

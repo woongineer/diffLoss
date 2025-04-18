@@ -10,4 +10,3 @@ def fidelity_plot(fidelity_logs, filename):
     plt.grid(True)
     plt.tight_layout()
     plt.savefig(filename)
-    plt.show()
