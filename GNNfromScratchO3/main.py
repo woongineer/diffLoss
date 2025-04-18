@@ -45,7 +45,7 @@ if __name__ == "__main__":
     ###########수정된 부분 START##########
     # Hyper‑params
     batch_size = 64                         # ↑ 배치로 variance 저감
-    max_episode, max_step = 20, 15
+    max_episode, max_step = 20000, 15
     gamma, lam = args.gamma, args.lam
 
     # Reward 스케일 / baseline

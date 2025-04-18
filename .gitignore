@@ -8,6 +8,7 @@ __pycache__/
 *.pth
 *.npz
 *.csv
+*.log
 *.pkl
 *.json
 .idea/
