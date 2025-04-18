@@ -4,7 +4,7 @@ from torch_geometric.data import Data
 
 
 def dict_to_qiskit_circuit(circuit_dict):
-    max_qubit = max(max(q for q in g['qubits'] if q is not None) for g in circuit_dict)
+    max_qubit = max(q for g in circuit_dict for q in g['qubits'] if q is not None)
     qc = QuantumCircuit(max_qubit + 1)
     for gate in sorted(circuit_dict, key=lambda g: g['depth']):
         name = gate['gate_type']
@@ -49,7 +49,12 @@ def dag_to_pyg_data(dag, gate_types):
 
     for i, node in enumerate(op_nodes):
         node_id_map[node] = i
-        node_feats.append(encode_gate_type(node.name))
+        one_hot = encode_gate_type(node.name)
+
+        ###########수정된 부분 START##########
+        # depth / max_depth  (0‒1 정규화)  추가
+        depth_scalar = torch.tensor([node._node_id / dag.depth()], dtype=torch.float32)
+        node_feats.append(torch.cat([one_hot, depth_scalar]))
 
     for i, node in enumerate(op_nodes):
         for succ in dag.successors(node):

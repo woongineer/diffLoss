@@ -5,7 +5,7 @@ from torch.functional import F
 from qiskit.converters import circuit_to_dag
 
 from data import data_load_and_process, new_data
-from fidelity import check_fidelity, zz_hard_dict
+from fidelity import check_fidelity
 from network import GNN
 from plot import fidelity_plot
 from representation import dict_to_qiskit_circuit, dag_to_pyg_data
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     lam = 0.95  # GAE 람다 파라미터
     learning_rate = 0.0003
     max_episode = 20000
-    max_step = 15
+    max_step = 25
     entropy_coef = 0.01  # 엔트로피 계수
     hidden_dim = 64
 
@@ -67,7 +67,6 @@ if __name__ == "__main__":
     opt = torch.optim.Adam(policy_net.parameters(), lr=learning_rate)
 
     fidelity_logs = []
-    zz_fidelity_logs = []
     try:
         for episode in range(max_episode):
             circuit_dict = [
@@ -77,8 +76,6 @@ if __name__ == "__main__":
                 {'gate_type': 'H', 'depth': 0, 'qubits': (3, None), 'param': 0},
             ]
             X1_batch, X2_batch, Y_batch = new_data(batch_size, X_train, Y_train)
-            zz_fidelity_loss = check_fidelity(zz_hard_dict, X1_batch, X2_batch, Y_batch)
-            print(f"zz: {zz_fidelity_loss}")
 
             log_probs = []
             rewards = []
@@ -140,7 +137,7 @@ if __name__ == "__main__":
                 circuit_dict.append(new_gate)
 
                 fidelity_loss = check_fidelity(circuit_dict, X1_batch, X2_batch, Y_batch)
-                reward = zz_fidelity_loss.item()-fidelity_loss.item()
+                reward = -fidelity_loss.item()
 
                 log_probs.append(log_prob)
                 rewards.append(reward)
@@ -177,13 +174,11 @@ if __name__ == "__main__":
             opt.step()
 
             fidelity_logs.append(fidelity_loss)
-            zz_fidelity_logs.append(zz_fidelity_loss)
             print(f"[episode {episode}] Fidelity: {fidelity_loss:.4f}, Entropy: {entropy:.4f}")
 
     except Exception as e:
         print(f"An error occurred: {e}")
 
     finally:
-        fidelity_plot(fidelity_logs, f"relative_step:{max_step}_lr:{learning_rate}_episode:{max_episode}.png")
-        fidelity_plot(zz_fidelity_logs, f"zz_relative_step:{max_step}_lr:{learning_rate}_episode:{max_episode}.png")
+        fidelity_plot(fidelity_logs, f"absolute_step:{max_step}_lr:{learning_rate}_episode:{max_episode}.png")
         print("Time Taken:", datetime.now() - start_time)

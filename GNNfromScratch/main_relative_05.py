@@ -55,7 +55,7 @@ if __name__ == "__main__":
     lam = 0.95  # GAE 람다 파라미터
     learning_rate = 0.0003
     max_episode = 20000
-    max_step = 15
+    max_step = 25
     entropy_coef = 0.01  # 엔트로피 계수
     hidden_dim = 64
 
@@ -67,7 +67,6 @@ if __name__ == "__main__":
     opt = torch.optim.Adam(policy_net.parameters(), lr=learning_rate)
 
     fidelity_logs = []
-    zz_fidelity_logs = []
     try:
         for episode in range(max_episode):
             circuit_dict = [
@@ -177,7 +176,6 @@ if __name__ == "__main__":
             opt.step()
 
             fidelity_logs.append(fidelity_loss)
-            zz_fidelity_logs.append(zz_fidelity_loss)
             print(f"[episode {episode}] Fidelity: {fidelity_loss:.4f}, Entropy: {entropy:.4f}")
 
     except Exception as e:
@@ -185,5 +183,4 @@ if __name__ == "__main__":
 
     finally:
         fidelity_plot(fidelity_logs, f"relative_step:{max_step}_lr:{learning_rate}_episode:{max_episode}.png")
-        fidelity_plot(zz_fidelity_logs, f"zz_relative_step:{max_step}_lr:{learning_rate}_episode:{max_episode}.png")
         print("Time Taken:", datetime.now() - start_time)

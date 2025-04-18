@@ -54,7 +54,7 @@ if __name__ == "__main__":
     gamma = 0.95
     lam = 0.95  # GAE 람다 파라미터
     learning_rate = 0.0003
-    max_episode = 5
+    max_episode = 20000
     max_step = 15
     entropy_coef = 0.01  # 엔트로피 계수
     hidden_dim = 64
@@ -67,113 +67,119 @@ if __name__ == "__main__":
     opt = torch.optim.Adam(policy_net.parameters(), lr=learning_rate)
 
     fidelity_logs = []
-    for episode in range(max_episode):
-        circuit_dict = [
-            {'gate_type': 'H', 'depth': 0, 'qubits': (0, None), 'param': 0},
-            {'gate_type': 'H', 'depth': 0, 'qubits': (1, None), 'param': 0},
-            {'gate_type': 'H', 'depth': 0, 'qubits': (2, None), 'param': 0},
-            {'gate_type': 'H', 'depth': 0, 'qubits': (3, None), 'param': 0},
-        ]
-        X1_batch, X2_batch, Y_batch = new_data(batch_size, X_train, Y_train)
 
-        log_probs = []
-        rewards = []
-        values = []
+    try:
+        for episode in range(max_episode):
+            circuit_dict = [
+                {'gate_type': 'H', 'depth': 0, 'qubits': (0, None), 'param': 0},
+                {'gate_type': 'H', 'depth': 0, 'qubits': (1, None), 'param': 0},
+                {'gate_type': 'H', 'depth': 0, 'qubits': (2, None), 'param': 0},
+                {'gate_type': 'H', 'depth': 0, 'qubits': (3, None), 'param': 0},
+            ]
+            X1_batch, X2_batch, Y_batch = new_data(batch_size, X_train, Y_train)
 
-        # 정책 분포를 저장하기 위한 리스트
-        entropy_dists = []
+            log_probs = []
+            rewards = []
+            values = []
 
-        for step in range(max_step):
-            qiskit_qc = dict_to_qiskit_circuit(circuit_dict)
-            dag = circuit_to_dag(qiskit_qc)
-            dag_for_pyg = dag_to_pyg_data(dag, gate_types)
+            # 정책 분포를 저장하기 위한 리스트
+            entropy_dists = []
 
-            q_logits, g_logits, p_logits, t_logits, value = policy_net(dag_for_pyg)
+            for step in range(max_step):
+                qiskit_qc = dict_to_qiskit_circuit(circuit_dict)
+                dag = circuit_to_dag(qiskit_qc)
+                dag_for_pyg = dag_to_pyg_data(dag, gate_types)
 
-            q_dist = torch.softmax(q_logits, dim=0)
-            g_dist = torch.softmax(g_logits, dim=0)
-            p_dist = torch.softmax(p_logits, dim=0)
-            t_dist = torch.softmax(t_logits, dim=0)
+                q_logits, g_logits, p_logits, t_logits, value = policy_net(dag_for_pyg)
 
-            # 엔트로피 계산을 위해 분포 저장
-            step_dists = [q_dist, g_dist, None, None]
+                q_dist = torch.softmax(q_logits, dim=0)
+                g_dist = torch.softmax(g_logits, dim=0)
+                p_dist = torch.softmax(p_logits, dim=0)
+                t_dist = torch.softmax(t_logits, dim=0)
 
-            q_sample = torch.multinomial(q_dist, num_samples=1).item()
-            g_sample = torch.multinomial(g_dist, num_samples=1).item()
+                # 엔트로피 계산을 위해 분포 저장
+                step_dists = [q_dist, g_dist, None, None]
 
-            gate_name = gate_types[g_sample]
+                q_sample = torch.multinomial(q_dist, num_samples=1).item()
+                g_sample = torch.multinomial(g_dist, num_samples=1).item()
 
-            if gate_name == 'CNOT':
-                t_sample_offset = torch.multinomial(t_dist, num_samples=1).item()
-                t_sample = (q_sample + t_sample_offset + 1) % num_qubit
-                qubits = (q_sample, t_sample)
-                param = None
-                log_prob = torch.log(q_dist[q_sample]) + torch.log(g_dist[g_sample]) + torch.log(
-                    t_dist[t_sample_offset])
-                step_dists[2] = t_dist  # target qubit 분포 저장
+                gate_name = gate_types[g_sample]
 
-            elif gate_name in ['RX', 'RY', 'RZ']:
-                p_sample = torch.multinomial(p_dist, num_samples=1).item()
-                qubits = (q_sample, None)
-                param = p_sample
-                log_prob = torch.log(q_dist[q_sample]) + torch.log(g_dist[g_sample]) + torch.log(p_dist[p_sample])
-                step_dists[2] = p_dist  # 파라미터 분포 저장
+                if gate_name == 'CNOT':
+                    t_sample_offset = torch.multinomial(t_dist, num_samples=1).item()
+                    t_sample = (q_sample + t_sample_offset + 1) % num_qubit
+                    qubits = (q_sample, t_sample)
+                    param = None
+                    log_prob = torch.log(q_dist[q_sample]) + torch.log(g_dist[g_sample]) + torch.log(
+                        t_dist[t_sample_offset])
+                    step_dists[2] = t_dist  # target qubit 분포 저장
 
-            else:
-                qubits = (q_sample, None)
-                param = None
-                log_prob = torch.log(q_dist[q_sample]) + torch.log(g_dist[g_sample])
+                elif gate_name in ['RX', 'RY', 'RZ']:
+                    p_sample = torch.multinomial(p_dist, num_samples=1).item()
+                    qubits = (q_sample, None)
+                    param = p_sample
+                    log_prob = torch.log(q_dist[q_sample]) + torch.log(g_dist[g_sample]) + torch.log(p_dist[p_sample])
+                    step_dists[2] = p_dist  # 파라미터 분포 저장
 
-            entropy_dists.append(step_dists)
+                else:
+                    qubits = (q_sample, None)
+                    param = None
+                    log_prob = torch.log(q_dist[q_sample]) + torch.log(g_dist[g_sample])
 
-            new_gate = {
-                'gate_type': gate_name,
-                'depth': step + 1,  # 현재 step을 depth로 사용
-                'qubits': qubits,
-                'param': param,
-            }
+                entropy_dists.append(step_dists)
 
-            circuit_dict.append(new_gate)
+                new_gate = {
+                    'gate_type': gate_name,
+                    'depth': step + 1,  # 현재 step을 depth로 사용
+                    'qubits': qubits,
+                    'param': param,
+                }
 
-            fidelity_loss = check_fidelity(circuit_dict, X1_batch, X2_batch, Y_batch)
-            reward = -fidelity_loss.item()
+                circuit_dict.append(new_gate)
 
-            log_probs.append(log_prob)
-            rewards.append(reward)
-            values.append(value)
+                fidelity_loss = check_fidelity(circuit_dict, X1_batch, X2_batch, Y_batch)
+                reward = -fidelity_loss.item()
 
-        values = torch.stack(values)
-        rewards = torch.tensor(rewards)
+                log_probs.append(log_prob)
+                rewards.append(reward)
+                values.append(value)
 
-        # GAE를 사용하여 리턴 계산
-        returns = compute_gae(rewards, values, gamma=gamma, lam=lam)
+            values = torch.stack(values)
+            rewards = torch.tensor(rewards)
 
-        # 어드밴티지 계산
-        advantages = returns - values.detach()
+            # GAE를 사용하여 리턴 계산
+            returns = compute_gae(rewards, values, gamma=gamma, lam=lam)
 
-        # 정책 손실 계산
-        policy_loss = -torch.stack(log_probs) * advantages
-        policy_loss = policy_loss.mean()  # sum() 대신 mean()으로 안정화
+            # 어드밴티지 계산
+            advantages = returns - values.detach()
 
-        # 가치 손실 계산
-        value_loss = F.mse_loss(values, returns)
+            # 정책 손실 계산
+            policy_loss = -torch.stack(log_probs) * advantages
+            policy_loss = policy_loss.mean()  # sum() 대신 mean()으로 안정화
 
-        # 모든 정책 분포에 대한 엔트로피 계산
-        entropy = 0
-        for step_dists in entropy_dists:
-            entropy += calculate_entropy([d for d in step_dists if d is not None])
-        entropy = entropy / len(entropy_dists)  # 평균 엔트로피
+            # 가치 손실 계산
+            value_loss = F.mse_loss(values, returns)
 
-        # 전체 손실 계산 (정책 손실 + 가치 손실 - 엔트로피 보너스)
-        loss = policy_loss + 0.5 * value_loss - entropy_coef * entropy
+            # 모든 정책 분포에 대한 엔트로피 계산
+            entropy = 0
+            for step_dists in entropy_dists:
+                entropy += calculate_entropy([d for d in step_dists if d is not None])
+            entropy = entropy / len(entropy_dists)  # 평균 엔트로피
 
-        opt.zero_grad()
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(policy_net.parameters(), 0.5)  # 기울기 클리핑 추가
-        opt.step()
+            # 전체 손실 계산 (정책 손실 + 가치 손실 - 엔트로피 보너스)
+            loss = policy_loss + 0.5 * value_loss - entropy_coef * entropy
 
-        fidelity_logs.append(fidelity_loss)
-        print(f"[episode {episode}] Fidelity: {fidelity_loss:.4f}, Entropy: {entropy:.4f}")
+            opt.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(policy_net.parameters(), 0.5)  # 기울기 클리핑 추가
+            opt.step()
 
-    fidelity_plot(fidelity_logs, f"absolute_step:{max_step}_lr:{learning_rate}_episode:{max_episode}.png")
-    print("Time Taken:", datetime.now() - start_time)
+            fidelity_logs.append(fidelity_loss)
+            print(f"[episode {episode}] Fidelity: {fidelity_loss:.4f}, Entropy: {entropy:.4f}")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+    finally:
+        fidelity_plot(fidelity_logs, f"absolute_step:{max_step}_lr:{learning_rate}_episode:{max_episode}.png")
+        print("Time Taken:", datetime.now() - start_time)
