@@ -5,7 +5,7 @@ from pennylane import numpy as pnp
 from sklearn.decomposition import PCA
 
 
-def data_load_and_process(dataset="mnist", reduction_sz: int = 4):
+def data_load_and_process(dataset="mnist", reduction_sz: int = 4, train_len=400, test_len=100):
     data_path = "/Users/jwheo/Desktop/Y/NQE/Neural-Quantum-Embedding/rl/kmnist"
     if dataset == "mnist":
         (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
@@ -48,7 +48,7 @@ def data_load_and_process(dataset="mnist", reduction_sz: int = 4):
     for x in X_test:
         x = (x - x.min()) * (2 * pnp.pi / (x.max() - x.min()))
         x_test.append(x)
-    return x_train[:400], x_test[:100], y_train[:400], y_test[:100]
+    return x_train[:train_len], x_test[:test_len], y_train[:train_len], y_test[:test_len]
 
 
 def new_data(batch_sz, X, Y):

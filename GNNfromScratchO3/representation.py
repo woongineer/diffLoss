@@ -42,8 +42,10 @@ def dag_to_pyg_data(dag, gate_types):
 
     op_nodes = list(dag.topological_op_nodes())
     if not op_nodes:
-        dummy_x = torch.zeros((1, len(gate_types)))
-        dummy_x[0, gate_types.index('I')] = 1  # Identity로 설정
+        one_hot = torch.zeros(len(gate_types))
+        one_hot[gate_types.index('I')] = 1
+        depth_scalar = torch.tensor([0.0])  # dummy라도 7차원 맞춰야 함
+        dummy_x = torch.cat([one_hot, depth_scalar]).unsqueeze(0)
         return Data(x=dummy_x, edge_index=torch.empty((2, 0), dtype=torch.long))
         # raise ValueError("dag_to_pyg_data: DAG has no operation nodes. Check if circuit was optimized to empty.")
 

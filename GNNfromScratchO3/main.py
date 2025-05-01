@@ -44,7 +44,7 @@ if __name__ == "__main__":
 
     ###########수정된 부분 START##########
     # Hyper‑params
-    batch_size = 64                         # ↑ 배치로 variance 저감
+    batch_size = 128                         # ↑ 배치로 variance 저감
     max_episode, max_step = 20000, 15
     gamma, lam = args.gamma, args.lam
 
@@ -61,7 +61,8 @@ if __name__ == "__main__":
 
     hidden_dim = 64
 
-    X_train, X_test, Y_train, Y_test = data_load_and_process("kmnist", reduction_sz=num_qubit)
+    X_train, X_test, Y_train, Y_test = data_load_and_process("kmnist", reduction_sz=num_qubit,
+                                                             train_len=800, test_len=200)
 
     policy_net = GNN(in_dim, hidden_dim,
                      num_qubit=num_qubit,
