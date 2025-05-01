@@ -44,8 +44,8 @@ if __name__ == "__main__":
 
     ###########수정된 부분 START##########
     # Hyper‑params
-    batch_size = 128                         # ↑ 배치로 variance 저감
-    max_episode, max_step = 20000, 15
+    batch_size = 64                         # ↑ 배치로 variance 저감
+    max_episode, max_step = 10000, 15
     gamma, lam = args.gamma, args.lam
 
     # Reward 스케일 / baseline
@@ -91,6 +91,7 @@ if __name__ == "__main__":
 
             log_probs, rewards, values, entropies = [], [], [], []
 
+            entropy_sum = 0.0
             for step in range(max_step):
                 dag = circuit_to_dag(dict_to_qiskit_circuit(circuit))
                 pyg_data = dag_to_pyg_data(dag, gate_types)
@@ -145,6 +146,14 @@ if __name__ == "__main__":
                 rewards.append(reward)
                 values.append(val)
 
+                step_entropy = calculate_entropy(d_q) + calculate_entropy(d_g)
+                if gate == "CNOT":
+                    step_entropy += calculate_entropy(d_t)
+                elif gate in {"RX", "RY", "RZ"}:
+                    step_entropy += calculate_entropy(d_p)
+                # H, I는 추가 엔트로피 없음
+                entropy_sum += step_entropy
+
             # -------- A2C update --------
             values = torch.stack(values)
             rewards = torch.tensor(rewards, dtype=torch.float32)
@@ -158,7 +167,7 @@ if __name__ == "__main__":
             policy_loss = -(torch.stack(log_probs) * adv).mean()
             value_loss = F.mse_loss(values.squeeze(), returns)
 
-            entropy_term = torch.stack([calculate_entropy(e) for e in entropies]).mean()
+            entropy_term = entropy_sum / max_step
             loss = policy_loss + 0.5 * value_loss - entropy_coef * entropy_term
 
             opt.zero_grad()
