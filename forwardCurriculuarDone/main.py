@@ -29,29 +29,6 @@ def calculate_entropy(dists):
     return -(dists * torch.log(dists + 1e-10)).sum()
 
 
-def append_gate_backward(circuit, gate_type, qubits, param, step, max_step):
-    depth = max_step - step - 1
-    if gate_type == 'CNOT':
-        circuit = [g for g in circuit if not (g['depth'] == depth and g['qubits'][0] in qubits)]
-        circuit.append({
-            'gate_type': gate_type,
-            'depth': depth,
-            'qubits': qubits,
-            'param': param
-        })
-    else:
-        circuit = [g for g in circuit if not (g['depth'] == depth and g['qubits'][0] == qubits[0])]
-        circuit.append({
-            'gate_type': gate_type,
-            'depth': depth,
-            'qubits': qubits,
-            'param': param
-        })
-
-    circuit.sort(key=lambda g: (g['depth'], g['qubits'][0]))
-    return circuit
-
-
 # ──────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     start = datetime.now()
@@ -63,26 +40,34 @@ if __name__ == "__main__":
 
     num_qubit = 4
     gate_types = ["RX", "RY", "RZ", "CNOT", "H", "I"]
-    in_dim = len(gate_types) + 1  # depth 스칼라 포함
+    in_dim = len(gate_types) + 1            # depth 스칼라 포함
 
     ###########수정된 부분 START##########
     # Hyper‑params
-    batch_size = 128  # ↑ 배치로 variance 저감
-    max_episode, max_step = 20000, 15
+    batch_size = 128                         # ↑ 배치로 variance 저감
+    max_episode, max_step = 20000, 45
     gamma, lam = args.gamma, args.lam
 
     # Reward 스케일 / baseline
     reward_scale = 10.0
-    baseline_buffer = deque(maxlen=500)  # running baseline
+    baseline_buffer = deque(maxlen=500)     # running baseline
 
     # LR & entropy warm‑up
     lr_init = 5e-4
     entropy_coef_init, entropy_coef_min = 0.05, 0.005
     warmup_ep = 5000
-    epsilon_greedy = 0.02  # 2 % explorer
+    epsilon_greedy = 0.02                   # 2 % explorer
     ###########수정된 부분 END##########
 
     hidden_dim = 64
+
+    done_threshold = 0.7  # 시작은 7/10
+    min_done_threshold = 0.1  # 최종 목표 (1/10)
+    streak_length = 10
+    streak_threshold = 8  # 최근 10번 중 8번이 done이면 threshold harsh하게
+    threshold_decay_rate = 0.05  # 한번에 줄어드는 양 (5/10 → 4/10)
+    done_streak = deque(maxlen=streak_length)
+    min_done_step = 5
 
     X_train, X_test, Y_train, Y_test = data_load_and_process("kmnist", reduction_sz=num_qubit,
                                                              train_len=800, test_len=200)
@@ -106,8 +91,8 @@ if __name__ == "__main__":
             )
 
             # -------- 초기 회로 & 데이터 샘플 --------
-            circuit = [{'gate_type': 'I', 'depth': d, 'qubits': (q, None), 'param': None} for d in range(max_step) for q in
-                       range(num_qubit)]
+            circuit = [{'gate_type': 'H', 'depth': 0, 'qubits': (q, None), 'param': 0}
+                       for q in range(num_qubit)]
             X1, X2, Y = new_data(batch_size, X_train, Y_train)
 
             zz_loss = check_fidelity(zz_hard_dict, X1, X2, Y)
@@ -125,11 +110,9 @@ if __name__ == "__main__":
                 d_p = torch.softmax(p_log, 0)
                 d_t = torch.softmax(t_log, 0)
 
-
                 # ---------- ε‑greedy exploration ----------
                 def mix(dist, n):
                     return (1 - epsilon_greedy) * dist + epsilon_greedy / n
-
 
                 d_q, d_g = mix(d_q, num_qubit), mix(d_g, len(gate_types))
                 d_p, d_t = mix(d_p, num_qubit), mix(d_t, num_qubit - 1)
@@ -153,9 +136,36 @@ if __name__ == "__main__":
                     qubits, param = (q, None), None
                     log_p = torch.log(d_q[q]) + torch.log(d_g[g])
 
-                circuit = append_gate_backward(circuit, gate, qubits, param, step, max_step)
+                circuit.append({'gate_type': gate,
+                                'depth': step + 1,
+                                'qubits': qubits,
+                                'param': param})
 
                 fid_loss = check_fidelity(circuit, X1, X2, Y)
+
+                # Done 조건 체크
+                if step >= min_done_step and fid_loss <= zz_loss * done_threshold:
+                    done = True
+                    reward = 10.0  # 보너스 보상
+                    log_probs.append(log_p)
+                    rewards.append(reward)
+                    values.append(val)
+
+                    # Streak 기록
+                    done_streak.append(1)
+
+                    # Streak이 조건을 만족하면 threshold harsh하게 조정
+                    if len(done_streak) == streak_length and sum(done_streak) >= streak_threshold:
+                        if done_threshold > min_done_threshold:
+                            done_threshold = max(done_threshold - threshold_decay_rate, min_done_threshold)
+                            done_streak.clear()  # 스택 초기화
+                            print(f"[Ep {ep}] Streak triggered. Adjusting threshold to {done_threshold:.3f}")
+
+                    print(
+                        f"[Early Terminate at step {step}] Fid {fid_loss:.4f} <= ZZ {zz_loss:.4f} * {done_threshold:.3f} → Done=True, bonus reward given.")
+                    break
+                else:
+                    done_streak.append(0)
 
                 ###########수정된 부분 START##########
                 raw_r = (zz_loss - fid_loss) / (abs(zz_loss) + eps_const)
@@ -183,7 +193,7 @@ if __name__ == "__main__":
             adv = returns - values.detach()
 
             ###########수정된 부분 START##########
-            adv = (adv - adv.mean()) / (adv.std() + 1e-8)  # 표준화
+            adv = (adv - adv.mean()) / (adv.std() + 1e-8)   # 표준화
             ###########수정된 부분 END##########
 
             policy_loss = -(torch.stack(log_probs) * adv).mean()
@@ -208,5 +218,5 @@ if __name__ == "__main__":
 
     finally:
         fidelity_plot(fid_logs, f"fid_loss_bs{batch_size}_gamma{gamma}_lam{lam}.png")
-        fidelity_plot(zz_logs, f"zz_bs{batch_size}_gamma{gamma}_lam{lam}.png")
+        fidelity_plot(zz_logs,  f"zz_bs{batch_size}_gamma{gamma}_lam{lam}.png")
         print("Total time:", datetime.now() - start)

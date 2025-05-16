@@ -59,6 +59,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--gamma", type=float, default=0.95, help="Discount factor")
     parser.add_argument("--lam", type=float, default=0.95, help="GAE lambda")
+    parser.add_argument("--step", type=int, default=15, help="Max step")
+    parser.add_argument("--epi", type=int, default=20000, help="Max episode")
     args = parser.parse_args()
 
     num_qubit = 4
@@ -68,7 +70,7 @@ if __name__ == "__main__":
     ###########수정된 부분 START##########
     # Hyper‑params
     batch_size = 128  # ↑ 배치로 variance 저감
-    max_episode, max_step = 20000, 15
+    max_episode, max_step = args.epi, args.step
     gamma, lam = args.gamma, args.lam
 
     # Reward 스케일 / baseline
@@ -115,6 +117,7 @@ if __name__ == "__main__":
             log_probs, rewards, values, entropies = [], [], [], []
 
             entropy_sum = 0.0
+            done = False
             for step in range(max_step):
                 dag = circuit_to_dag(dict_to_qiskit_circuit(circuit))
                 pyg_data = dag_to_pyg_data(dag, gate_types)
@@ -162,6 +165,15 @@ if __name__ == "__main__":
                 baseline_buffer.append(raw_r.item())
                 baseline = sum(baseline_buffer) / len(baseline_buffer)
                 reward = reward_scale * (raw_r - baseline)
+                if fid_loss <= zz_loss / 5:
+                    done = True
+                    reward += reward_scale  # 보너스 보상
+                    log_probs.append(log_p)
+                    rewards.append(reward)
+                    values.append(val)
+                    print(
+                        f"[Early Terminate at step {step}] Fid {fid_loss:.4f} <= ZZ {zz_loss:.4f} / 5 → Done=True, bonus reward given.")
+                    break
                 ###########수정된 부분 END##########
 
                 log_probs.append(log_p)

@@ -62,7 +62,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     num_qubit = 4
-    gate_types = ["RX", "RY", "RZ", "CNOT", "H", "I"]
+    gate_types = ["RX", "RY", "RZ", "CNOT", "H", "I", "RXX", "RYY", "RZZ"]
     in_dim = len(gate_types) + 1  # depth 스칼라 포함
 
     ###########수정된 부분 START##########
@@ -144,6 +144,16 @@ if __name__ == "__main__":
                     qubits, param = (q, tgt), None
                     log_p = torch.log(d_q[q]) + torch.log(d_g[g]) + torch.log(d_t[t_off])
                     entropies.append(d_t)
+                elif gate in {"RXX", "RYY", "RZZ"}:
+                    t_off = torch.multinomial(d_t, 1).item()
+                    tgt = (q + t_off + 1) % num_qubit
+
+                    p = torch.multinomial(d_p, 1).item()
+                    qubits, param = (q, tgt), p
+
+                    log_p = torch.log(d_q[q]) + torch.log(d_g[g]) + torch.log(d_t[t_off]) + torch.log(d_p[p])
+                    entropies.append(d_t)
+                    entropies.append(d_p)
                 elif gate in {"RX", "RY", "RZ"}:
                     p = torch.multinomial(d_p, 1).item()
                     qubits, param = (q, None), p
@@ -169,9 +179,9 @@ if __name__ == "__main__":
                 values.append(val)
 
                 step_entropy = calculate_entropy(d_q) + calculate_entropy(d_g)
-                if gate == "CNOT":
+                if gate in {"CNOT", "RXX", "RYY", "RZZ"}:
                     step_entropy += calculate_entropy(d_t)
-                elif gate in {"RX", "RY", "RZ"}:
+                if gate in {"RX", "RY", "RZ", "RXX", "RYY", "RZZ"}:
                     step_entropy += calculate_entropy(d_p)
                 # H, I는 추가 엔트로피 없음
                 entropy_sum += step_entropy
